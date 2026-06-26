@@ -7,9 +7,9 @@ except ImportError:  # pragma: no cover - optional dependency
     load_dotenv = None
 
 try:
-    from openai import OpenAI
+    import google.generativeai as genai
 except ImportError:  # pragma: no cover - optional dependency
-    OpenAI = None
+    genai = None
 
 
 if load_dotenv is not None:
@@ -66,16 +66,24 @@ Precautions:
 
 def process_prescription(text):
     api_key = os.getenv("GEMINI_API_KEY")
-    if OpenAI is not None and api_key:
+    if genai is not None and api_key:
         try:
-            client = OpenAI(api_key=api_key)
-            response = client.chat.completions.create(
+            # configure the official Google Generative AI client
+            try:
+                genai.configure(api_key=api_key)
+            except Exception:
+                # some client versions use client.configure
+                try:
+                    from google.generativeai import client as genai_client
+
+                    genai_client.configure(api_key=api_key)
+                except Exception:
+                    pass
+
+            response = genai.chat.completions.create(
                 model=os.getenv("GEMINI_MODEL", "gpt-4o-mini"),
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "You analyze prescription text and return a concise medical summary.",
-                    },
+                    {"role": "system", "content": "You analyze prescription text and return a concise medical summary."},
                     {
                         "role": "user",
                         "content": f"Analyze this prescription and return: Medicine, Dosage, Frequency, Duration, Condition, and Precautions. Prescription: {text}",
@@ -83,9 +91,35 @@ def process_prescription(text):
                 ],
                 temperature=0.2,
             )
-            content = response.choices[0].message.content.strip()
+
+            # Response shapes vary between client versions; try a few safe access patterns.
+            content = None
+            # 1) Common dict-style: response['candidates'][0]['content']
+            try:
+                if isinstance(response, dict):
+                    candidates = response.get("candidates") or []
+                    if candidates:
+                        first = candidates[0]
+                        if isinstance(first, dict):
+                            content = first.get("content") or first.get("message", {}).get("content")
+                        else:
+                            content = str(first)
+            except Exception:
+                content = None
+
+            # 2) Object-style used by some wrappers: response.choices[0].message.content
+            if not content:
+                try:
+                    content = response.choices[0].message.content
+                except Exception:
+                    pass
+
+            # 3) Some clients return top-level 'content' or string conversion
+            if not content:
+                content = getattr(response, "content", None) or (str(response) if response is not None else None)
+
             if content:
-                return content
+                return content.strip()
         except Exception:
             pass
 

@@ -1,4 +1,4 @@
 streamlit
 langchain
-openai
+google-generative-ai
 python-dotenv
