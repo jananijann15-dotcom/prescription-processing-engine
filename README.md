@@ -32,6 +32,20 @@ prescription-processing-engine/
 │── test.py
 │── utils/
 │   └── prescription_processor.py
+```
+
+How to run
+
+1. Install Python 3.8 or newer.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Run the app with Streamlit:
+   ```bash
+   streamlit run app.py
+   ```
+4. Open the URL shown in the terminal (usually `http://localhost:8501`).
 
  Sample Input
 
