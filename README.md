@@ -11,14 +11,29 @@ The Prescription Processing Engine is an AI-powered application that analyzes pr
 * Medicine information extraction
 * Dosage and frequency identification
 * Basic precautions display
-* AI-ready architecture using LangChain and OpenAI
+* AI-ready architecture using LangChain and Gemini
 
  Tech Stack
 
 * Python
 * Streamlit
 * LangChain
-* OpenAI API
+* Gemini (requires `GEMINI_API_KEY`)
+
+Configuration
+
+- Set your Gemini API key as an environment variable or in a `.env` file:
+
+```bash
+# Unix / macOS
+export GEMINI_API_KEY=sk-your-gemini-key
+
+# Windows (PowerShell)
+$env:GEMINI_API_KEY = "sk-your-gemini-key"
+
+# Or add to the project's .env file:
+GEMINI_API_KEY=sk-your-gemini-key
+```
 * python-dotenv
 
  Project Structure

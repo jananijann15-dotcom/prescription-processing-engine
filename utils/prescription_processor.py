@@ -65,12 +65,12 @@ Precautions:
 
 
 def process_prescription(text):
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if OpenAI is not None and api_key:
         try:
             client = OpenAI(api_key=api_key)
             response = client.chat.completions.create(
-                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                model=os.getenv("GEMINI_MODEL", "gpt-4o-mini"),
                 messages=[
                     {
                         "role": "system",
