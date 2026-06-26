@@ -1,4 +1,4 @@
 streamlit
 langchain
-google-generative-ai
+gemini-api-key
 python-dotenv

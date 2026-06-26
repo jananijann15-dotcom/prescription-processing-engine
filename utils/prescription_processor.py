@@ -1,15 +1,13 @@
+import json
 import os
 import re
+import urllib.request
+import urllib.error
 
 try:
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover - optional dependency
     load_dotenv = None
-
-try:
-    import google.generativeai as genai
-except ImportError:  # pragma: no cover - optional dependency
-    genai = None
 
 
 if load_dotenv is not None:
@@ -64,63 +62,69 @@ Precautions:
 """
 
 
+def _call_gemini_api(text, api_key, model_name):
+    if not api_key:
+        return None
+
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": (
+                            "Analyze this prescription and return: Medicine, Dosage, Frequency, Duration, "
+                            "Condition, and Precautions. Prescription: "
+                            f"{text}"
+                        )
+                    }
+                ]
+            }
+        ]
+    }
+
+    req = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            body = response.read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
+        return None
+
+    try:
+        data = json.loads(body)
+    except Exception:
+        return None
+
+    candidates = data.get("candidates") or []
+    if not candidates:
+        return None
+
+    content_parts = candidates[0].get("content", {}).get("parts", [])
+    if not content_parts:
+        return None
+
+    texts = []
+    for part in content_parts:
+        if isinstance(part, dict):
+            text_value = part.get("text")
+            if text_value:
+                texts.append(text_value)
+
+    return "\n".join(texts).strip() or None
+
+
 def process_prescription(text):
     api_key = os.getenv("GEMINI_API_KEY")
-    if genai is not None and api_key:
-        try:
-            # configure the official Google Generative AI client
-            try:
-                genai.configure(api_key=api_key)
-            except Exception:
-                # some client versions use client.configure
-                try:
-                    from google.generativeai import client as genai_client
+    model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
-                    genai_client.configure(api_key=api_key)
-                except Exception:
-                    pass
-
-            response = genai.chat.completions.create(
-                model=os.getenv("GEMINI_MODEL", "gpt-4o-mini"),
-                messages=[
-                    {"role": "system", "content": "You analyze prescription text and return a concise medical summary."},
-                    {
-                        "role": "user",
-                        "content": f"Analyze this prescription and return: Medicine, Dosage, Frequency, Duration, Condition, and Precautions. Prescription: {text}",
-                    },
-                ],
-                temperature=0.2,
-            )
-
-            # Response shapes vary between client versions; try a few safe access patterns.
-            content = None
-            # 1) Common dict-style: response['candidates'][0]['content']
-            try:
-                if isinstance(response, dict):
-                    candidates = response.get("candidates") or []
-                    if candidates:
-                        first = candidates[0]
-                        if isinstance(first, dict):
-                            content = first.get("content") or first.get("message", {}).get("content")
-                        else:
-                            content = str(first)
-            except Exception:
-                content = None
-
-            # 2) Object-style used by some wrappers: response.choices[0].message.content
-            if not content:
-                try:
-                    content = response.choices[0].message.content
-                except Exception:
-                    pass
-
-            # 3) Some clients return top-level 'content' or string conversion
-            if not content:
-                content = getattr(response, "content", None) or (str(response) if response is not None else None)
-
-            if content:
-                return content.strip()
-        except Exception:
-            pass
+    content = _call_gemini_api(text, api_key, model_name)
+    if content:
+        return content
 
     return _extract_local_analysis(text)
